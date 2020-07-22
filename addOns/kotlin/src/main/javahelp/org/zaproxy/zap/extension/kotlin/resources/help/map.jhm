@@ -4,6 +4,6 @@
          "http://java.sun.com/products/javahelp/map_1_0.dtd">
 
 <map version="1.0">
-	<mapID target="python-logo" url="contents/images/kotlin.png" />
+	<mapID target="kotlin-logo" url="contents/images/kotlin.png" />
     <mapID target="kotlin" url="contents/kotlin.html" />
 </map>

@@ -378,16 +378,15 @@ public class SessionFixationScanRule extends AbstractAppPlugin {
 
                     // if non-200 on the final response for message 1, no point in continuing. Bale
                     // out.
-                    if (msg1Final.getResponseHeader().getStatusCode() != HttpStatusCode.OK) {
-                        if (this.debugEnabled)
+                    if (!isPage200(msg1Final)) {
+                        if (this.debugEnabled) {
                             log.debug(
-                                    "Got a non-200 response code ["
-                                            + msg1Final.getResponseHeader().getStatusCode()
-                                            + "] when sending ["
+                                    "Got a non-200 response when sending ["
                                             + msg1Initial.getRequestHeader().getURI()
                                             + "] with param ["
                                             + currentHtmlParameter.getName()
                                             + "] = NULL (possibly somewhere in the redirects)");
+                        }
                         continue;
                     }
 
@@ -417,7 +416,7 @@ public class SessionFixationScanRule extends AbstractAppPlugin {
                     // Check 1: was the session cookie sent and received securely by the server?
                     // If not, alert this fact
                     if ((!msg1Final.getRequestHeader().isSecure())
-                            || (!cookieBack1.getFlags().contains("secure"))) {
+                            || (!containsIgnoreCase(cookieBack1.getFlags(), "secure"))) {
                         // pass the original param value here, not the new value, since we're
                         // displaying the session id exposed in the original message
                         String extraInfo =
@@ -496,7 +495,7 @@ public class SessionFixationScanRule extends AbstractAppPlugin {
                     //////////////////////////////////////////////////////////////////////
                     // Check 2: is the session cookie that was set accessible to Javascript?
                     // If so, alert this fact too
-                    if (!cookieBack1.getFlags().contains("httponly") && loginUrl) {
+                    if (!containsIgnoreCase(cookieBack1.getFlags(), "httponly") && loginUrl) {
                         // pass the original param value here, not the new value, since we're
                         // displaying the session id exposed in the original message
                         String extraInfo =
@@ -899,12 +898,10 @@ public class SessionFixationScanRule extends AbstractAppPlugin {
                     if (this.debugEnabled) log.debug("Done following redirects");
 
                     // final result was non-200, no point in continuing. Bale out.
-                    if (msg2Final.getResponseHeader().getStatusCode() != HttpStatusCode.OK) {
+                    if (!isPage200(msg2Final)) {
                         if (this.debugEnabled)
                             log.debug(
-                                    "Got a non-200 response code ["
-                                            + msg2Final.getResponseHeader().getStatusCode()
-                                            + "] when sending ["
+                                    "Got a non-200 response when sending ["
                                             + msg2Initial.getRequestHeader().getURI()
                                             + "] with a borrowed cookie (or by following a redirect) for param ["
                                             + currentHtmlParameter.getName()
@@ -1019,12 +1016,10 @@ public class SessionFixationScanRule extends AbstractAppPlugin {
                     sendAndReceive(msg1Initial);
 
                     // if non-200 on the response for message 1, no point in continuing. Bale out.
-                    if (msg1Initial.getResponseHeader().getStatusCode() != HttpStatusCode.OK) {
+                    if (!isPage200(msg1Initial)) {
                         if (this.debugEnabled)
                             log.debug(
-                                    "Got a non-200 response code ["
-                                            + msg1Initial.getResponseHeader().getStatusCode()
-                                            + "] when sending ["
+                                    "Got a non-200 response when sending ["
                                             + msg1Initial.getRequestHeader().getURI()
                                             + "] with param ["
                                             + currentHtmlParameter.getName()
@@ -1278,12 +1273,10 @@ public class SessionFixationScanRule extends AbstractAppPlugin {
                     sendAndReceive(msg2Initial);
 
                     // final result was non-200, no point in continuing. Bale out.
-                    if (msg2Initial.getResponseHeader().getStatusCode() != HttpStatusCode.OK) {
+                    if (!isPage200(msg2Initial)) {
                         if (this.debugEnabled)
                             log.debug(
-                                    "Got a non-200 response code ["
-                                            + msg2Initial.getResponseHeader().getStatusCode()
-                                            + "] when sending ["
+                                    "Got a non-200 response when sending ["
                                             + msg2Initial.getRequestHeader().getURI()
                                             + "] with a borrowed session (or by following a redirect) for param ["
                                             + currentHtmlParameter.getName()
@@ -1570,6 +1563,15 @@ public class SessionFixationScanRule extends AbstractAppPlugin {
         }
         // return them
         return pseudoUrlParams;
+    }
+
+    private static boolean containsIgnoreCase(Set<String> setToCheck, String strToFind) {
+        for (String item : setToCheck) {
+            if (item.equalsIgnoreCase(strToFind)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

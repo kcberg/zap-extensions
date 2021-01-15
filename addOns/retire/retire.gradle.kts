@@ -1,12 +1,12 @@
 import org.zaproxy.gradle.addon.AddOnStatus
 
-version = "0.4.0"
+version = "0.7.0"
 description = "Retire.js"
 
 zapAddOn {
     addOnName.set("Retire.js")
-    addOnStatus.set(AddOnStatus.BETA)
-    zapVersion.set("2.9.0")
+    addOnStatus.set(AddOnStatus.RELEASE)
+    zapVersion.set("2.10.0")
 
     manifest {
         author.set("Nikita Mundhada and the ZAP Dev Team")

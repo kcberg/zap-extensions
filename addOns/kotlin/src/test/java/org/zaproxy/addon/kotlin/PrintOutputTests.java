@@ -22,17 +22,18 @@ package org.zaproxy.addon.kotlin;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.zaproxy.addon.kotlin.TestUtils.getScriptContents;
 
-import java.io.ByteArrayOutputStream;
+import java.io.StringWriter;
 import java.io.Writer;
 import javax.script.Compilable;
 import javax.script.CompiledScript;
 import javax.script.ScriptContext;
+import javax.script.ScriptEngine;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class PrintOutputTests {
 
-    private static javax.script.ScriptEngine se;
+    private static ScriptEngine se;
 
     @BeforeAll
     public static void setUp() {
@@ -43,13 +44,13 @@ public class PrintOutputTests {
     public void shouldPrintToScriptContextWriter() throws Exception {
         String script = getScriptContents("printTest.kts");
 
-        ByteArrayOutputStream console = new ByteArrayOutputStream();
         ScriptContext sc = se.getContext();
         Writer originalWriter = sc.getWriter();
 
         try {
-            sc.setWriter(new java.io.PrintWriter(console));
-            Compilable c = (javax.script.Compilable) se;
+            StringWriter console = new StringWriter();
+            sc.setWriter(console);
+            Compilable c = (Compilable) se;
             CompiledScript cs = c.compile(script);
 
             cs.eval();

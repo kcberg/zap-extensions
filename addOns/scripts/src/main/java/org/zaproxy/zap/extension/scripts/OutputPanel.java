@@ -20,7 +20,6 @@
 package org.zaproxy.zap.extension.scripts;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.EventQueue;
 import javax.script.ScriptException;
 import javax.swing.ImageIcon;
@@ -217,7 +216,7 @@ public class OutputPanel extends AbstractPanel {
             return;
         }
         try {
-            EventQueue.invokeAndWait(
+            EventQueue.invokeLater(
                     new Runnable() {
                         @Override
                         public void run() {
@@ -274,7 +273,6 @@ public class OutputPanel extends AbstractPanel {
 
     public void clear() {
         getTxtOutput().setText("");
-        getTxtOutput().setForeground(Color.BLACK);
     }
 
     public boolean isEmpty() {

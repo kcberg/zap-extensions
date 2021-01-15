@@ -45,7 +45,8 @@ import org.apache.batik.bridge.UserAgentAdapter;
 import org.apache.batik.ext.awt.RenderingHintsKeyExt;
 import org.apache.batik.gvt.GraphicsNode;
 import org.apache.batik.util.XMLResourceDescriptor;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.w3c.dom.svg.SVGDocument;
 
 public class WappalyzerJsonParser {
@@ -54,19 +55,32 @@ public class WappalyzerJsonParser {
     private static final String FIELD_VERSION = "version:";
     private static final int SIZE = 16;
 
-    private static final Logger logger = Logger.getLogger(WappalyzerJsonParser.class);
-    private PatternErrorHandler patternErrorHandler;
+    private static final Logger logger = LogManager.getLogger(WappalyzerJsonParser.class);
+    private final PatternErrorHandler patternErrorHandler;
+    private final ParsingExceptionHandler parsingExceptionHandler;
 
     public WappalyzerJsonParser() {
-        patternErrorHandler = (pattern, e) -> logger.error("Invalid pattern syntax " + pattern, e);
+        this(
+                (pattern, e) -> logger.error("Invalid pattern syntax {}", pattern, e),
+                e -> logger.error(e.getMessage(), e));
     }
 
-    public WappalyzerJsonParser(PatternErrorHandler peh) {
+    WappalyzerJsonParser(PatternErrorHandler peh, ParsingExceptionHandler parsingExceptionHandler) {
         this.patternErrorHandler = peh;
+        this.parsingExceptionHandler = parsingExceptionHandler;
     }
 
     public WappalyzerData parseDefaultAppsJson() throws IOException {
         return parseJson(getStringResource(ExtensionWappalyzer.RESOURCE + "/apps.json"));
+    }
+
+    WappalyzerData parseAppsJson(String path) {
+        try {
+            return parseJson(getStringResource(path));
+        } catch (IOException e) {
+            logger.warn("An error occurred reading the file: {}", path);
+        }
+        return null;
     }
 
     private static String getStringResource(String resourceName) throws IOException {
@@ -106,7 +120,7 @@ public class WappalyzerJsonParser {
                 result.addCategory(mCat.getKey(), mCat.getValue().getString("name"));
             }
 
-            JSONObject apps = json.getJSONObject("apps");
+            JSONObject apps = json.getJSONObject("technologies");
             for (Object entry : apps.entrySet()) {
                 Map.Entry<String, JSONObject> mApp = (Map.Entry<String, JSONObject>) entry;
 
@@ -115,14 +129,16 @@ public class WappalyzerJsonParser {
 
                 Application app = new Application();
                 app.setName(appName);
+                app.setDescription(appData.optString("description"));
                 app.setWebsite(appData.getString("website"));
                 app.setCategories(
                         this.jsonToCategoryList(result.getCategories(), appData.get("cats")));
                 app.setHeaders(this.jsonToAppPatternMapList("HEADER", appData.get("headers")));
                 app.setUrl(this.jsonToPatternList("URL", appData.get("url")));
                 app.setHtml(this.jsonToPatternList("HTML", appData.get("html")));
-                app.setScript(this.jsonToPatternList("SCRIPT", appData.get("script")));
+                app.setScript(this.jsonToPatternList("SCRIPT", appData.get("scripts")));
                 app.setMetas(this.jsonToAppPatternMapList("META", appData.get("meta")));
+                app.setCss(this.jsonToPatternList("CSS", appData.get("css")));
                 app.setImplies(this.jsonToStringList(appData.get("implies")));
                 app.setCpe(appData.optString("cpe"));
 
@@ -142,7 +158,7 @@ public class WappalyzerJsonParser {
             }
 
         } catch (Exception e) {
-            logger.error(e.getMessage(), e);
+            parsingExceptionHandler.handleException(e);
         }
 
         return result;
@@ -196,7 +212,7 @@ public class WappalyzerJsonParser {
         try {
             svgIcon = builder.build(new BridgeContext(userAgent, loader), doc);
         } catch (BridgeException | StringIndexOutOfBoundsException ex) {
-            logger.debug("Failed to parse SVG. " + ex.getMessage());
+            logger.debug("Failed to parse SVG. {}", ex.getMessage());
             return null;
         }
 
@@ -229,7 +245,7 @@ public class WappalyzerJsonParser {
                 if (category != null) {
                     list.add(category);
                 } else {
-                    logger.error("Failed to find category for " + obj.toString());
+                    logger.error("Failed to find category for {}", obj.toString());
                 }
             }
         }
@@ -250,17 +266,16 @@ public class WappalyzerJsonParser {
                     list.add(map);
                 } catch (NumberFormatException e) {
                     logger.error(
-                            "Invalid field syntax " + entry.getKey() + " : " + entry.getValue(), e);
+                            "Invalid field syntax {} : {}", entry.getKey(), entry.getValue(), e);
                 } catch (PatternSyntaxException e) {
                     patternErrorHandler.handleError(entry.getValue(), e);
                 }
             }
         } else if (json != null) {
             logger.error(
-                    "Unexpected header type for "
-                            + json.toString()
-                            + " "
-                            + json.getClass().getCanonicalName());
+                    "Unexpected header type for {} {}",
+                    json.toString(),
+                    json.getClass().getCanonicalName());
         }
         return list;
     }
@@ -308,17 +323,17 @@ public class WappalyzerJsonParser {
                 } else if (values[i].startsWith(FIELD_VERSION)) {
                     ap.setVersion(values[i].substring(FIELD_VERSION.length()));
                 } else {
-                    logger.error("Unexpected field: " + values[i]);
+                    logger.error("Unexpected field: {}", values[i]);
                 }
             } catch (Exception e) {
-                logger.error("Invalid field syntax " + values[i], e);
+                logger.error("Invalid field syntax {}", values[i], e);
             }
         }
         if (pattern.indexOf(FIELD_CONFIDENCE) > 0) {
-            logger.warn("Confidence field in pattern?: " + pattern);
+            logger.warn("Confidence field in pattern?: {}", pattern);
         }
         if (pattern.indexOf(FIELD_VERSION) > 0) {
-            logger.warn("Version field in pattern?: " + pattern);
+            logger.warn("Version field in pattern?: {}", pattern);
         }
         ap.setPattern(pattern);
         return ap;
@@ -329,5 +344,9 @@ public class WappalyzerJsonParser {
             return (int) Double.parseDouble(confidence) * 100;
         }
         return Integer.parseInt(confidence);
+    }
+
+    interface ParsingExceptionHandler {
+        void handleException(Exception e);
     }
 }
